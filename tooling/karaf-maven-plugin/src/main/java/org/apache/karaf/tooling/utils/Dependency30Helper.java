@@ -18,17 +18,9 @@
  */
 package org.apache.karaf.tooling.utils;
 
-import static java.lang.String.format;
-import static org.apache.commons.lang.reflect.MethodUtils.invokeMethod;
-import static org.apache.karaf.deployer.kar.KarArtifactInstaller.FEATURE_CLASSIFIER;
-
-import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
@@ -37,18 +29,11 @@ import org.apache.maven.project.ProjectBuildingRequest;
 import org.sonatype.aether.RepositorySystem;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.artifact.Artifact;
-import org.sonatype.aether.collection.CollectRequest;
-import org.sonatype.aether.collection.CollectResult;
-import org.sonatype.aether.collection.DependencyCollectionContext;
-import org.sonatype.aether.collection.DependencyCollectionException;
-import org.sonatype.aether.collection.DependencyGraphTransformer;
-import org.sonatype.aether.collection.DependencySelector;
+import org.sonatype.aether.collection.*;
 import org.sonatype.aether.graph.Dependency;
 import org.sonatype.aether.graph.DependencyNode;
 import org.sonatype.aether.repository.RemoteRepository;
-import org.sonatype.aether.resolution.ArtifactRequest;
-import org.sonatype.aether.resolution.ArtifactResolutionException;
-import org.sonatype.aether.resolution.ArtifactResult;
+import org.sonatype.aether.resolution.*;
 import org.sonatype.aether.util.DefaultRepositorySystemSession;
 import org.sonatype.aether.util.artifact.DefaultArtifact;
 import org.sonatype.aether.util.graph.selector.AndDependencySelector;
@@ -58,6 +43,17 @@ import org.sonatype.aether.util.graph.transformer.ChainedDependencyGraphTransfor
 import org.sonatype.aether.util.graph.transformer.ConflictMarker;
 import org.sonatype.aether.util.graph.transformer.JavaDependencyContextRefiner;
 import org.sonatype.aether.util.graph.transformer.JavaEffectiveScopeCalculator;
+
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import static java.lang.String.format;
+import static org.apache.commons.lang.reflect.MethodUtils.invokeMethod;
+import static org.apache.karaf.deployer.kar.KarArtifactInstaller.FEATURE_CLASSIFIER;
 
 /**
  * This is a dependency helper compliant with Maven 3.0 (using Aether Sonatype lib)
@@ -89,7 +85,7 @@ public class Dependency30Helper implements DependencyHelper {
         this.repositorySystemSession = repositorySystemSession;
         this.repositorySystem = repositorySystem;
     }
-    
+
 	public void setRepositorySession(final ProjectBuildingRequest request) throws MojoExecutionException {
 		try {
 			invokeMethod(request, "setRepositorySession", repositorySystemSession);
@@ -284,7 +280,7 @@ public class Dependency30Helper implements DependencyHelper {
     public boolean isArtifactAFeature(Object artifact) {
         return Dependency30Helper.isFeature((Artifact) artifact);
     }
-    
+
 	@Override
 	public String getBaseVersion(Object artifact) {
 		return ((Artifact) artifact).getBaseVersion();
@@ -402,5 +398,24 @@ public class Dependency30Helper implements DependencyHelper {
         DefaultArtifact artifact = new DefaultArtifact(name);
         org.apache.maven.artifact.Artifact mavenArtifact = RepositoryUtils.toArtifact(artifact);
         return MavenUtil.layout.pathOf(mavenArtifact);
+    }
+
+    @Override
+    public void resolveVersionRange(org.apache.maven.artifact.Artifact artifact) throws Exception {
+        if (artifact == null || artifact.getVersionRange() == null) {
+            return;
+        }
+
+        VersionRangeRequest request = new VersionRangeRequest();
+        request.setArtifact(RepositoryUtils.toArtifact(artifact));
+        request.setRepositories(projectRepositories);
+        VersionRangeResult result = repositorySystem.resolveVersionRange(repositorySystemSession, request);
+
+        artifact.setAvailableVersions(new ArrayList<ArtifactVersion>());
+        for (org.sonatype.aether.version.Version version : result.getVersions()) {
+            artifact.getAvailableVersions().add(new DefaultArtifactVersion(version.toString()));
+        }
+        artifact.setResolvedVersion(result.getHighestVersion().toString());
+        result.getHighestVersion().toString();
     }
 }

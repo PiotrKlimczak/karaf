@@ -18,15 +18,15 @@
  */
 package org.apache.karaf.tooling.utils;
 
-import java.io.File;
-import java.util.Collection;
-
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuildingRequest;
+
+import java.io.File;
+import java.util.Collection;
 
 /**
  * <p>An interface for accessing available Aether subsystem (Sonatype for Maven 3.0.x or Eclipse for Maven 3.1.x)</p>
@@ -91,4 +91,6 @@ public interface DependencyHelper {
      * @return the filesystem path.
      */
     public String pathFromAether(String name) throws MojoExecutionException;
+
+    public void resolveVersionRange(Artifact version) throws Exception;
 }

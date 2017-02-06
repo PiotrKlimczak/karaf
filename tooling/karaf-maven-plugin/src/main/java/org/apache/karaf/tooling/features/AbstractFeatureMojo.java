@@ -17,31 +17,21 @@
  */
 package org.apache.karaf.tooling.features;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.felix.utils.version.VersionRange;
 import org.apache.felix.utils.version.VersionTable;
 import org.apache.karaf.features.BundleInfo;
 import org.apache.karaf.features.Conditional;
-import org.apache.karaf.features.internal.model.Bundle;
-import org.apache.karaf.features.internal.model.ConfigFile;
-import org.apache.karaf.features.internal.model.Dependency;
-import org.apache.karaf.features.internal.model.Feature;
-import org.apache.karaf.features.internal.model.Features;
-import org.apache.karaf.features.internal.model.JaxbUtil;
+import org.apache.karaf.features.internal.model.*;
+import org.apache.karaf.tooling.utils.DependencyHelper;
+import org.apache.karaf.tooling.utils.DependencyHelperFactory;
 import org.apache.karaf.tooling.utils.MojoSupport;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.MojoExecutionException;
-
 import org.apache.maven.plugins.annotations.Parameter;
 import org.osgi.framework.Version;
+
+import java.util.*;
 
 /**
  * Common functionality for mojos that need to resolve features
@@ -122,7 +112,8 @@ public abstract class AbstractFeatureMojo extends MojoSupport {
         if (includeMvnBasedDescriptors) {
             bundles.add(uri);
         }
-        Features repo = JaxbUtil.unmarshal(translateFromMaven(uri.replaceAll(" ", "%20")), true);
+
+        Features repo = JaxbUtil.unmarshal(translateFromMaven(descriptor, uri), true);
         for (Feature f : repo.getFeature()) {
             featuresMap.put(f.getId(), f);
         }
@@ -146,6 +137,10 @@ public abstract class AbstractFeatureMojo extends MojoSupport {
             if (artifact == null) {
                 return;
             }
+
+            DependencyHelper dependencyHelper = DependencyHelperFactory.createDependencyHelper(container, project, mavenSession, getLog());
+            dependencyHelper.resolveVersionRange(artifact);
+
             List<ArtifactRepository> usedRemoteRepos = artifact.getRepository() != null ? 
                     Collections.singletonList(artifact.getRepository())
                     : remoteRepos;

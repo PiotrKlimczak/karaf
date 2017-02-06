@@ -19,6 +19,8 @@
 package org.apache.karaf.tooling.utils;
 
 import org.apache.maven.RepositoryUtils;
+import org.apache.maven.artifact.versioning.ArtifactVersion;
+import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
@@ -33,27 +35,29 @@ import org.eclipse.aether.collection.*;
 import org.eclipse.aether.graph.Dependency;
 import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.repository.RemoteRepository;
-import org.eclipse.aether.resolution.ArtifactRequest;
-import org.eclipse.aether.resolution.ArtifactResolutionException;
-import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.resolution.*;
 import org.eclipse.aether.util.graph.selector.AndDependencySelector;
 import org.eclipse.aether.util.graph.selector.ExclusionDependencySelector;
 import org.eclipse.aether.util.graph.selector.OptionalDependencySelector;
 import org.eclipse.aether.util.graph.transformer.*;
+import org.eclipse.aether.version.Version;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
-import static java.lang.String.*;
+import static java.lang.String.format;
 import static org.apache.commons.lang.reflect.MethodUtils.invokeMethod;
 import static org.apache.karaf.deployer.kar.KarArtifactInstaller.FEATURE_CLASSIFIER;
 
 /**
  * <p>{@link DependencyHelper} for accessing Eclipse Aether system used in Maven 3.1+. It uses reflection to access
  * these methods of {@code maven-core} APIs which directly references Eclipse Aether classes.</p>
- *
+ * <p>
  * <p>When {@code karaf-maven-plugin} switches to {@code maven-core:3.1.0+}, reflection should be use for Sonatype
  * Aether in {@link Dependency30Helper} and this class will use Maven API directly.</p>
  */
@@ -85,14 +89,14 @@ public class Dependency31Helper implements DependencyHelper {
         this.repositorySystemSession = (RepositorySystemSession) session;
         this.repositorySystem = repositorySystem;
     }
-    
-	public void setRepositorySession(final ProjectBuildingRequest request) throws MojoExecutionException {
-		try {
-			invokeMethod(request, "setRepositorySession", repositorySystemSession);
-		} catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-			throw new MojoExecutionException("Cannot set repository session on project building request", e);
-		}
-	}
+
+    public void setRepositorySession(final ProjectBuildingRequest request) throws MojoExecutionException {
+        try {
+            invokeMethod(request, "setRepositorySession", repositorySystemSession);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new MojoExecutionException("Cannot set repository session on project building request", e);
+        }
+    }
 
     @Override
     public Set<LocalDependency> getLocalDependencies() {
@@ -283,16 +287,16 @@ public class Dependency31Helper implements DependencyHelper {
     public boolean isArtifactAFeature(Object artifact) {
         return Dependency31Helper.isFeature((Artifact) artifact);
     }
-    
-	@Override
-	public String getBaseVersion(Object artifact) {
-		return ((Artifact) artifact).getBaseVersion();
-	}
 
-	@Override
-	public String getGroupId(Object artifact) {
-		return ((Artifact) artifact).getGroupId();
-	}
+    @Override
+    public String getBaseVersion(Object artifact) {
+        return ((Artifact) artifact).getBaseVersion();
+    }
+
+    @Override
+    public String getGroupId(Object artifact) {
+        return ((Artifact) artifact).getGroupId();
+    }
 
     @Override
     public String getArtifactId(Object artifact) {
@@ -421,4 +425,22 @@ public class Dependency31Helper implements DependencyHelper {
         return MavenUtil.layout.pathOf(mavenArtifact);
     }
 
+    @Override
+    public void resolveVersionRange(org.apache.maven.artifact.Artifact artifact) throws Exception {
+        if (artifact == null || artifact.getVersionRange() == null) {
+            return;
+        }
+
+        VersionRangeRequest request = new VersionRangeRequest();
+        request.setArtifact(toArtifact(artifact));
+        request.setRepositories(projectRepositories);
+        VersionRangeResult result = repositorySystem.resolveVersionRange(repositorySystemSession, request);
+
+        artifact.setAvailableVersions(new ArrayList<ArtifactVersion>());
+        for (Version version : result.getVersions()) {
+            artifact.getAvailableVersions().add(new DefaultArtifactVersion(version.toString()));
+        }
+        artifact.setResolvedVersion(result.getHighestVersion().toString());
+        result.getHighestVersion().toString();
+    }
 }

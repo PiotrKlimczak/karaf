@@ -17,18 +17,6 @@
  */
 package org.apache.karaf.tooling.utils;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
 import org.apache.karaf.util.StreamUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
@@ -52,6 +40,14 @@ import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.settings.Proxy;
 import org.codehaus.plexus.PlexusContainer;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
 
 @SuppressWarnings({"deprecation", "rawtypes", "unchecked"})
 public abstract class MojoSupport extends AbstractMojo {
@@ -169,29 +165,19 @@ public abstract class MojoSupport extends AbstractMojo {
         return map;
     }
     
-    protected String translateFromMaven(String uri) {
+    protected String translateFromMaven(Artifact artifact, String uri) {
         if (uri.startsWith("mvn:")) {
-            String[] parts = uri.substring("mvn:".length()).split("/");
-            String groupId = parts[0];
-            String artifactId = parts[1];
-            String version = null;
-            String classifier = null;
-            String type = "jar";
-            if (parts.length > 2) {
-                version = parts[2];
-                if (parts.length > 3) {
-                    type = parts[3];
-                    if (parts.length > 4) {
-                        classifier = parts[4];
-                    }
-                }
-            }
+            String groupId = artifact.getGroupId();
+            String artifactId = artifact.getArtifactId();
+            String version = artifact.getBaseVersion();
+            String classifier = artifact.getClassifier();
+            String type = artifact.getType();
+
             String dir = groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/";
             String name = artifactId + "-" + version + (classifier != null ? "-" + classifier : "") + "." + type;
 
             return getLocalRepoUrl() + "/" + dir + name;
-        }
-        if (System.getProperty("os.name").startsWith("Windows") && uri.startsWith("file:")) {
+        } else if (System.getProperty("os.name").startsWith("Windows") && uri.startsWith("file:")) {
                 String baseDir = uri.substring(5).replace('\\', '/').replaceAll(" ", "%20");
                 String result = baseDir;
                 if (baseDir.indexOf(":") > 0) {
